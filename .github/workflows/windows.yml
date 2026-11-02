@@ -20,6 +20,12 @@ jobs:
       - name: Verify audio analysis
         shell: pwsh
         run: ./Test.ps1
+      - name: Add audio codecs
+        shell: pwsh
+        run: ./Setup-Decoder.ps1
+      - name: Verify audio formats
+        shell: pwsh
+        run: ./TestFormats.ps1
       - name: Package
         shell: pwsh
         run: |
@@ -46,5 +52,5 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_SHA: ${{ github.sha }}
         run: |
-          if gh release view v0.2.0 >/dev/null 2>&1; then exit 0; fi
-          gh release create v0.2.0 Harmoniq-Windows-x64.zip --target "$RELEASE_SHA" --title "Harmoniq v0.2.0" --notes "Windows x64 MVP (application name CrateScope 0.2). Self-contained .NET EXE, no Python required. Includes documentation and license notices. Synthetic audio tests passed; real-music accuracy, macOS and Rekordbox import validation remain open."
+          if gh release view v0.3.0 >/dev/null 2>&1; then exit 0; fi
+          gh release create v0.3.0 Harmoniq-Windows-x64.zip --target "$RELEASE_SHA" --title "Harmoniq v0.3.0" --notes "Windows preview player with play/pause, seek, volume and editable cue points. Extended codec support through FFmpeg. Synthetic and format regressions tested. Real-track checks revealed unresolved key ambiguity; detection is not guaranteed. Includes third-party notices."

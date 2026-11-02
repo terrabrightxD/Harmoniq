@@ -1,59 +1,45 @@
-# Harmoniq — DJ Audio Analysis
+# Harmoniq 0.3 — lokale DJ-Vorbereitung
 
-Aktueller Implementierungsstand: CrateScope 0.2 (C#/.NET, Windows).
+Windows-x64-Anwendung in C#/.NET/WPF, kein Python zur Laufzeit. Im Programm lautet der Name noch CrateScope.
 
-Diese Version ersetzt die Python-Implementierung durch **C#/.NET 8 und WPF**. Die einzelne EXE enthält die benötigte .NET-Laufzeit. Kein Python, kein separates .NET-Setup, kein Browser und kein Server erforderlich. Windows x64. Die EXE ist nicht signiert. WPF ist Windows-spezifisch; diese Neufassung ist noch keine macOS-Anwendung. Ein macOS-Port bleibt offen.
+## Start und Bedienung
 
-## Start
+Das gesamte Release-ZIP entpacken und `CrateScope.exe` starten. `ffmpeg.exe` und die Lizenzhinweise neben der Anwendung belassen. Die .NET-Laufzeit ist in der Haupt-EXE enthalten.
 
-`Windows/CrateScope.exe` doppelklicken. Audio hinzufügen oder Dateien auf das Fenster ziehen. Die Analyse läuft lokal im Hintergrund. Ein ausgewählter Track zeigt Waveform, Cue-Vorschläge, Messhinweise und Alternativen. Im unteren Bereich können Key/BPM und bis zu acht Cue-Zeiten geändert werden; Cue-Zeiten mit Semikolon trennen. JSON, CSV und Rekordbox-XML stehen über „Exportieren“ bereit. Export enthält die gesamte Bibliothek und überschreibt keine vorhandene Datei.
+Dateien über „Musik hinzufügen“ oder Drag-and-drop importieren. Ordner-Drop berücksichtigt bekannte Audioendungen. Track auswählen, Abspielen/Pause benutzen; Stop springt an den Anfang. Waveform oder Positionsregler dienen zum Springen, der rechte Regler zur Lautstärke. „Cue hier“ speichert die aktuelle Abspielposition, ein Klick auf einen Cue springt dorthin. Maximal acht Cues; ausgewählten Cue mit „Cue entfernen“ entfernen. Die Zeitposition folgt dem Ausgabegerät, nicht dem vorauseilenden Decoder. Key/BPM/Cue-Zeiten können weiterhin manuell korrigiert werden.
 
-Bibliothek: `%LOCALAPPDATA%/CrateScopeNative/library.json`. Speicherung über temporäre Datei und Austausch; bestehende Python-Bibliothek wird nicht verändert/importiert. Original-Key/BPM bleiben bei Korrektur erhalten. Gleiche Pfade werden übersprungen; keine automatische Reanalyse veränderter Dateien. Ordner-Drop importiert direkte Dateien. Unterstützte Formate hängen von NAudio/Windows-Media-Foundation-Codecs ab. WAV ist mit dem beigefügten Bestand getestet. MP3/FLAC/M4A sind decoderabhängig, nicht als vollständig validiert ausgewiesen. Unlesbare Dateien liefern pro Track einen Fehler. Laufzeitgrenze: 2 Sekunden bis 30 Minuten.
+Originaldateien bleiben unverändert. Die separate Bibliothek liegt unter `%LOCALAPPDATA%/CrateScopeNative/library.json`. Exporte JSON/CSV/Rekordbox-XML überschreiben keine existierenden Dateien. Rekordbox-Import weiterhin nicht end-to-end abgenommen. Bestehende analysierte Pfade werden übersprungen; bisher keine Reanalyse-Schaltfläche.
 
-## Echte Signalverarbeitung — und ihre Grenzen
+## Audioformate
 
-Die App analysiert dekodierte Samples, weder Dateinamen noch Zufallswerte. Der neue C#-Analysekern berechnet eine 4096-Punkt-Hann-FFT bei 22050 Hz. Spektrale Spitzen werden mit sub-bin-Interpolation in musikalische Tonhöhenklassen umgerechnet und gegen 24 Dur-/Moll-Profile bewertet. Ein schwaches Profil wird als „Offen“ angezeigt, ein kleiner Abstand zwischen Kandidaten als „Tonart prüfen“. A=440 Hz wird vorausgesetzt.
+Geprüft: WAV PCM16, PCM24 und Float, FLAC, AIFF, MP3, AAC in M4A und ADTS, ALAC, OGG/Vorbis, Opus und WMA. Weitere FFmpeg-Codecs werden über den Fallback versucht. Keine Garantie für jedes existierende Format, beschädigte Dateien oder DRM. Grenzen: 2 Sekunden bis 30 Minuten; Fallback-Dekodierung maximal 120 Sekunden.
 
-Für BPM werden positive spektrale Änderungen als Onsets gemessen. Bei regelmäßig wiederkehrenden Impulsen wird das Tempo aus einem Konsens ihrer Zeitabstände berechnet. Bei unregelmäßigen Impulsen folgt normalisierte Autokorrelation als Periodizitätsschätzung. Alternativen bei halbem/doppeltem Tempo bleiben sichtbar. Die Kriterien sind Heuristiken; ein regelmäßiger Puls beweist nicht die richtige metrische Ebene.
+NAudio/Windows decodiert direkt, FFmpeg dient als Fallback. Analyse und Wiedergabe verwenden dieselbe AudioSource. Für nicht direkt lesbare Formate wird eine temporäre Stereo-WAV angelegt und beim Freigeben entfernt. Kein Upload und kein Netzwerkzugriff bei der Audioanalyse. FFmpeg ist eine separate GPLv3-Anwendung; Distribution, Lizenz und Build-/Quellcodeinformationen liegen im Release bei. Quelle: https://www.gyan.dev/ffmpeg/builds/ .
 
-Das ist tatsächliche Audioanalyse, aber keine garantierte musikalische Wahrheit. Besonders bei Synkopen, mehreren Instrumenten, modulierender Harmonik und wechselndem Tempo sind Fehler möglich. Kein Nachweis von Mixed-In-Key-Gleichwertigkeit. Die neue Engine wurde noch nicht an unabhängig annotierter echter DJ-Musik geprüft.
+## Erkennung und tatsächliche Tests
 
-Energy E1 bleibt ein eigenes Modell: 35 % RMS-Lautheit, 30 % Onsetdichte, 20 % spektrale Helligkeit, 15 % Tempo, auf 1–10 skaliert. Cues markieren Änderungen in lokalen Tonhöhenprofilen; keine semantisch bestätigten Drops. Die Messgrößen `KeySeparation` und `TempoRegularity` stehen im JSON; sie sind keine kalibrierten Wahrscheinlichkeiten.
+Key: Hann-FFT 4096, interpolierte spektrale Spitzen, lineare Magnitudengewichtung und Vergleich von 24 Dur-/Moll-Profilen. BPM: robuste Onset-Schwelle (95. Perzentil statt absolutem Maximum), Zeitabstandskonsens, Autokorrelation mit interpoliertem Maximum und Halb-/Doppeltempoalternativen. Die Interpretation bleibt mehrdeutig. Konfidenzheuristiken sind keine Wahrscheinlichkeiten. Energy E1 ist ein eigenes Modell; Cues sind akustische Vorschläge, keine bestätigten Drops.
 
-## Tatsächliche Tests
+- Synthetische Regression: 38/38 bekannte Keys und 38/38 Tempi innerhalb ±1 BPM.
+- Formatregression: 12/12 Codec-/Formatfälle erfolgreich decodiert; C-Dur und ca. 120 BPM erhalten.
+- Zwei privat bereitgestellte MP3s lokal analysiert. Dabei wurden eine Halbtempo-Mehrdeutigkeit und unsichere bzw. vom Tag abweichende Tonarten festgestellt. Keine behauptete allgemeine Musikgenauigkeit. Privates Audio und Berichte mit Dateipfaden sind nicht im Repository.
+- Beide MP3s bestanden den stummen Audioausgabetest: ausgegebene Samples, Pause, Sprung auf 10 Sekunden und anschließender Positionsfortschritt nachgewiesen.
+- Neue Player-Oberfläche tatsächlich geöffnet und visuell geprüft. Die weitere interaktive Bedienungsprüfung wurde vom Nutzer mit Escape beendet; vollständige interaktive Cue-Abnahme daher offen.
+- Kein macOS-Port, keine Mixed-In-Key-Vergleichswerte. Die vorigen Testergebnisse in test-results.json stammen aus Version 0.2 und sind historische Daten.
 
-- Die **gebaute EXE** analysierte 41 WAV-Dateien; darunter 38 Fälle mit bekannten Sollwerten, 44,1-kHz-Variante, gegenphasiges Stereo und ein Track mit wechselnden Tonarten.
-- **38/38 Keys korrekt und 38/38 BPM innerhalb ±1 BPM.** Beim 180-BPM-Fall: **179,97 BPM**. Gilt ausschließlich für diesen einfachen synthetischen Entwicklungsbestand.
-- Mittlere Analysezeit in diesem Lauf: rund **0,487 s** pro Datei (24–48 Sekunden Audio). Rohwerte in `test-results.json`, Vergleich in `comparison.csv`.
-- Wechselnde Tonarten im Abschnittstest wurden global als **„Offen“** ausgegeben; kein unbegründeter globaler Key.
-- WPF-Oberfläche auf Windows tatsächlich gestartet und visuell geprüft. Bibliothek, Waveform und Korrekturfelder sichtbar. Manuelle Änderung von 119,97 auf 60 BPM wurde in der separaten Vorschau-Bibliothek gespeichert, OriginalBpm=119,97 blieb erhalten.
-- Reale Musikqualität, native Drag-Geste, alle Decoderformate und Rekordbox-End-to-End-Import sind noch nicht separat abgenommen. Die früheren Python-Unit-Tests gelten nicht automatisch für diese Neuimplementierung.
+## Build und Reproduktion
 
-## Build und Reproduktion ohne Python
-
-.NET 8 SDK installieren, im Quellcodeordner:
+.NET 8 SDK und PowerShell, im Repository:
 
 ```powershell
 dotnet publish CrateScope.csproj -c Release -o Windows -p:DebugType=None
+./Setup-Decoder.ps1
 ./Test.ps1
+./TestFormats.ps1
 ```
 
-`Test.ps1` führt die EXE direkt gegen die mit GenerateFixtures.ps1 erzeugten WAV-Fixtures aus. Die Fixtures werden mit dem eigenen C#-Generator in tools/FixtureGenerator.cs synthetisch erzeugt; Python wird nicht benötigt. Erwartete Werte: `expected.csv`. Laufzeit- und Analyseberichte werden mit neuem Dateinamen erzeugt.
+Der eigene C#-Fixturegenerator erzeugt den synthetischen Bestand ohne Python. Test.ps1 verwendet die gebaute EXE. TestFormats.ps1 erzeugt Codecvarianten eines synthetischen Signals mit FFmpeg. Setup-Decoder.ps1 lädt einen FFmpeg-Release vom Distributor, prüft dessen veröffentlichten SHA256 und legt Lizenzhinweise bei. Eine Internetverbindung wird nur für Installation/Build benötigt.
 
-Für externe Dateien:
+CLI: `CrateScope.exe --analyze neuer-bericht.json track.wav`. Bei Leerzeichen Argumente korrekt quoten. Reportdateien werden ausschließlich neu angelegt. Erfolgreiche Dateien und Trackfehler werden separat erfasst. `--playback-test neuer-test.json track.wav` testet lokale Audioausgabe stumm; Audiohardware nötig.
 
-```powershell
-Start-Process ./Windows/CrateScope.exe -ArgumentList '--analyze', 'neuer-bericht.json', 'track.wav' -Wait
-```
-
-Bei Pfaden mit Leerzeichen müssen die Argumente entsprechend gequotet werden. Ausgabe wird ausschließlich neu angelegt. Ein Fehlerbericht enthält erfolgreiche Analysen und Fehler separat; Exitcode 1 bedeutet mindestens einen Dateifehler.
-
-## Architektur, Exporte und Lizenzen
-
-`Engine.cs`: vollständiger eigener Analysecode. `MainWindow.xaml`: Oberfläche. `MainWindow.xaml.cs`: Import, Queue-Fortschritt, Bibliothek, Korrekturen und Export. `App.xaml.cs`: Start und Batch-Testmodus. NAudio 2.2.1 decodiert Audio, MIT-Lizenz in `licenses/`. .NET/WPF werden selbstenthaltend gebündelt; entsprechende Runtime-Hinweise sind ebenfalls beigefügt.
-
-Rekordbox-XML nutzt das [offizielle Austauschformat](https://cdn.rekordbox.com/files/20200410160904/xml_format_list.pdf): Collection, Playlist, Datei-URI, AverageBpm, Tonality und Memory-Cues (Num=-1). Kein Beatgrid und kein Datenbankzugriff. Importkompatibilität bleibt im Zielprogramm zu prüfen. Keine bestehenden DJ-Daten wurden geändert.
-
-Technische Grundlagen: [NAudio](https://github.com/naudio/NAudio), [Microsoft Single-File Deployment](https://learn.microsoft.com/en-us/dotnet/core/deploying/single-file/overview). Verwendete NAudio-Version ist im Projekt festgeschrieben. Eigener Code übernimmt die MIT-Lizenz des vorigen CrateScope-Projekts.
-
-
+GitHub Actions baut die Windows-Version, führt die synthetischen und Formatprüfungen aus und veröffentlicht v0.3.0 nach erfolgreichem Durchlauf. FFmpeg-Version und Prüfsumme im jeweiligen Paket festgehalten. Eigener Code und NAudio: MIT; Laufzeit-/Drittanbieterhinweise siehe licenses.

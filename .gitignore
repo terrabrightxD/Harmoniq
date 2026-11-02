@@ -9,3 +9,4 @@ verification-*.json
 *.tmp
 *.zip
 fixtures/
+.decoder-cache/
