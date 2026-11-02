@@ -1,0 +1,11 @@
+bin/
+obj/
+Windows/
+.vs/
+*.user
+*.suo
+preview-library.json
+verification-*.json
+*.tmp
+*.zip
+fixtures/
